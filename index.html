@@ -5,12 +5,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Black Mountain — Sediment</title>
   <style>
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-    body { background: white; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--page-bg, #fff); }
     canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   </style>
 </head>
@@ -28,7 +29,9 @@
     const context = canvas.getContext('2d', { alpha: false });
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    const FRAME_MS = 16;
+    // A slightly lower simulation cadence on phones offsets the finer grid.
+    // Particle size and visual detail are independent of update frequency.
+    const FRAME_MS = Math.min(innerWidth, innerHeight) < 700 ? 33 : 16;
     const MAX_STEPS_PER_FRAME = 4;
     const ROTATION_FRAMES = 90 * 60;
     const EROSION_FRACTION = 0.003;
@@ -48,6 +51,15 @@
     let rotation = 0;
     let background = 255;
     let ink = 1; // 1 = black; 2 = white; 0 = empty.
+
+    // Match Safari’s top and bottom browser chrome to the artwork.
+    // The canvas stays in the visual viewport; the document color fills safe areas.
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    function syncBrowserColor() {
+      const color = background === 0 ? '#000000' : '#ffffff';
+      document.documentElement.style.setProperty('--page-bg', color);
+      themeColor.setAttribute('content', color);
+    }
     let lastTime = 0;
     let accumulatedTime = 0;
 
@@ -72,9 +84,12 @@
     function initialize() {
       // Internal resolution is capped to avoid extreme memory consumption.
       const isTouchSized = Math.min(innerWidth, innerHeight) < 700;
-      const scale = Math.min(isTouchSized ? 0.9 : 1.35,
-        (isTouchSized ? 520 : 1350) / innerWidth,
-        (isTouchSized ? 820 : 1050) / innerHeight);
+      // Keep fine-grained sand on phones too. The previous 0.9 scale
+      // discarded more than half the available pixel detail on Retina screens.
+      // Limit the grid to protect mobile memory and CPU usage.
+      const scale = Math.min(isTouchSized ? 1.65 : 1.35,
+        (isTouchSized ? 900 : 1350) / innerWidth,
+        (isTouchSized ? 1500 : 1050) / innerHeight);
       width = Math.max(1, Math.round(innerWidth * scale));
       height = Math.max(1, Math.round(innerHeight * scale));
       canvas.width = width;
@@ -84,6 +99,7 @@
       cells = new Uint8Array(width * height);
       frameImage = context.createImageData(width, height);
       background = 255;
+      syncBrowserColor();
       ink = 1;
       rotation = 0;
       halfSize = Math.round(Math.min(width * 0.42, height * 0.48) / 2);
@@ -232,6 +248,7 @@
       pointerPosition(event);
       releaseAllOrSome(true);
       background = background === 255 ? 0 : 255;
+      syncBrowserColor();
       ink = ink === 1 ? 2 : 1;
       sourcePixels = sourceTemplate.slice();
       positionSeal(pointerX, pointerY);
@@ -298,6 +315,7 @@
           }
         }
         background = oldBackground;
+        syncBrowserColor();
         ink = oldInk;
         rotation = oldRotation;
         const remaining = oldSource.length / Math.max(1, sourceTemplate.length);
