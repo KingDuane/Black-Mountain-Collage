@@ -1,0 +1,328 @@
+<!doctype html>
+<!--
+  “This is not a field where one paints a painting which will be looked at for centuries. This is a field where one does his work and in ten years it is obsolete. It’s sort of like a sediment of rocks. You’re building up a mountain and you get to contribute your little layer of sedimentary rock to make the mountain that much higher. No one will see it, but they will stand on it. You can’t appreciate it from the top of the mountain but it’ll be appreciated by that rare geologist.” —Steve Jobs
+
+  Black Mountain — Sediment
+  A browser-sized, two-color falling-sand study.
+  The source image is embedded so this document works offline.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Black Mountain — Sediment</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: white; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  </style>
+</head>
+<body>
+  <canvas aria-label="An interactive Black Mountain seal erodes into falling black and white sand. Move or drag to position the seal; tap or click to add a new layer and invert the background."></canvas>
+  <script>
+  (() => {
+    'use strict';
+
+    // The original artwork is embedded for reliable offline sharing.
+    const sealImage = new Image();
+    sealImage.src = 'data:image/png;base64,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';
+
+    const canvas = document.querySelector('canvas');
+    const context = canvas.getContext('2d', { alpha: false });
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const FRAME_MS = 16;
+    const MAX_STEPS_PER_FRAME = 4;
+    const ROTATION_FRAMES = 90 * 60;
+    const EROSION_FRACTION = 0.003;
+    const THRESHOLD = 135;
+
+    let width = 0;
+    let height = 0;
+    let cells;
+    let frameImage;
+    let sourcePixels = [];
+    let sourceTemplate = [];
+    let halfSize = 0;
+    let centerX = 0;
+    let centerY = 0;
+    let pointerX = null;
+    let pointerY = null;
+    let rotation = 0;
+    let background = 255;
+    let ink = 1; // 1 = black; 2 = white; 0 = empty.
+    let lastTime = 0;
+    let accumulatedTime = 0;
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function positionSeal(x, y) {
+      // Keep the seal inside the viewport when possible.
+      const marginX = Math.min(halfSize + 2, width / 2);
+      const marginY = Math.min(halfSize + 2, height / 2);
+      centerX = Math.round(clamp(x, marginX, width - marginX));
+      centerY = Math.round(clamp(y, marginY, height - marginY));
+    }
+
+    function pointerPosition(event) {
+      const bounds = canvas.getBoundingClientRect();
+      pointerX = (event.clientX - bounds.left) * width / bounds.width;
+      pointerY = (event.clientY - bounds.top) * height / bounds.height;
+    }
+
+    function initialize() {
+      // Internal resolution is capped to avoid extreme memory consumption.
+      const isTouchSized = Math.min(innerWidth, innerHeight) < 700;
+      const scale = Math.min(isTouchSized ? 0.9 : 1.35,
+        (isTouchSized ? 520 : 1350) / innerWidth,
+        (isTouchSized ? 820 : 1050) / innerHeight);
+      width = Math.max(1, Math.round(innerWidth * scale));
+      height = Math.max(1, Math.round(innerHeight * scale));
+      canvas.width = width;
+      canvas.height = height;
+      context.imageSmoothingEnabled = false;
+
+      cells = new Uint8Array(width * height);
+      frameImage = context.createImageData(width, height);
+      background = 255;
+      ink = 1;
+      rotation = 0;
+      halfSize = Math.round(Math.min(width * 0.42, height * 0.48) / 2);
+      positionSeal(pointerX ?? width / 2, pointerY ?? height / 2);
+
+      // Rasterize the seal once, then reuse its pixel coordinates on clicks.
+      const side = halfSize * 2;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = side;
+      offscreen.height = side;
+      const offscreenContext = offscreen.getContext('2d', { willReadFrequently: true });
+      offscreenContext.fillStyle = '#fff';
+      offscreenContext.fillRect(0, 0, side, side);
+      const ratio = sealImage.naturalWidth / sealImage.naturalHeight;
+      const drawWidth = ratio > 1 ? side : side * ratio;
+      const drawHeight = ratio > 1 ? side / ratio : side;
+      offscreenContext.drawImage(
+        sealImage, (side - drawWidth) / 2, (side - drawHeight) / 2,
+        drawWidth, drawHeight
+      );
+
+      const rgba = offscreenContext.getImageData(0, 0, side, side).data;
+      sourceTemplate = [];
+      for (let y = 0; y < side; y++) {
+        for (let x = 0; x < side; x++) {
+          if (rgba[(y * side + x) * 4] < THRESHOLD) {
+            sourceTemplate.push({ x: x - halfSize, y: y - halfSize });
+          }
+        }
+      }
+      sourcePixels = sourceTemplate.slice();
+      lastTime = 0;
+      accumulatedTime = 0;
+      render();
+    }
+
+    function releaseAllOrSome(all = false) {
+      if (!sourcePixels.length) return;
+      const sine = Math.sin(rotation);
+      const cosine = Math.cos(rotation);
+      const count = all
+        ? sourcePixels.length
+        : Math.max(1, Math.ceil(sourcePixels.length * EROSION_FRACTION));
+
+      for (let n = 0; n < count && sourcePixels.length; n++) {
+        let index = Math.floor(Math.random() * sourcePixels.length);
+        if (!all) {
+          // Bias erosion toward the lower edge of the rotating seal.
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const candidate = Math.floor(Math.random() * sourcePixels.length);
+            const a = sourcePixels[candidate];
+            const b = sourcePixels[index];
+            if (a.x * sine + a.y * cosine > b.x * sine + b.y * cosine) {
+              index = candidate;
+            }
+          }
+        }
+        const pixel = sourcePixels[index];
+        sourcePixels[index] = sourcePixels[sourcePixels.length - 1];
+        sourcePixels.pop();
+
+        const x = Math.round(centerX + pixel.x * cosine - pixel.y * sine);
+        const y = Math.round(centerY + pixel.x * sine + pixel.y * cosine);
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+          const offset = y * width + x;
+          if (!cells[offset]) cells[offset] = ink;
+        }
+      }
+    }
+
+    function simulate() {
+      // Bottom-up update: a grain can move down or diagonally into empty space.
+      // Alternate horizontal scan direction to avoid a persistent sideways bias.
+      const reverse = Math.random() < 0.5;
+      for (let y = height - 2; y >= 0; y--) {
+        for (let x = reverse ? width - 1 : 0;
+          reverse ? x >= 0 : x < width;
+          x += reverse ? -1 : 1) {
+          const index = y * width + x;
+          const grain = cells[index];
+          if (!grain) continue;
+          const below = index + width;
+          if (!cells[below]) {
+            cells[below] = grain;
+            cells[index] = 0;
+            continue;
+          }
+          const direction = Math.random() < 0.5 ? -1 : 1;
+          if (x + direction >= 0 && x + direction < width && !cells[below + direction]) {
+            cells[below + direction] = grain;
+            cells[index] = 0;
+          } else if (x - direction >= 0 && x - direction < width && !cells[below - direction]) {
+            cells[below - direction] = grain;
+            cells[index] = 0;
+          }
+        }
+      }
+      if (sourcePixels.length) {
+        rotation += Math.PI * 2 / ROTATION_FRAMES;
+        releaseAllOrSome();
+      }
+    }
+
+    function render() {
+      const rgba = frameImage.data;
+      for (let i = 0; i < cells.length; i++) {
+        const shade = cells[i] === 1 ? 0 : cells[i] === 2 ? 255 : background;
+        const index = i * 4;
+        rgba[index] = rgba[index + 1] = rgba[index + 2] = shade;
+        rgba[index + 3] = 255;
+      }
+      const sine = Math.sin(rotation);
+      const cosine = Math.cos(rotation);
+      const shade = ink === 1 ? 0 : 255;
+      for (const pixel of sourcePixels) {
+        const x = Math.round(centerX + pixel.x * cosine - pixel.y * sine);
+        const y = Math.round(centerY + pixel.x * sine + pixel.y * cosine);
+        if (x < 0 || x >= width || y < 0 || y >= height) continue;
+        const index = (y * width + x) * 4;
+        rgba[index] = rgba[index + 1] = rgba[index + 2] = shade;
+      }
+      context.putImageData(frameImage, 0, 0);
+    }
+
+    function animate(time) {
+      if (!lastTime) lastTime = time;
+      accumulatedTime += Math.min(100, time - lastTime);
+      lastTime = time;
+      if (!document.hidden && !prefersReducedMotion.matches && accumulatedTime >= FRAME_MS) {
+        const steps = Math.min(MAX_STEPS_PER_FRAME, Math.floor(accumulatedTime / FRAME_MS));
+        accumulatedTime -= steps * FRAME_MS;
+        for (let i = 0; i < steps; i++) simulate();
+        render();
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // A mouse steers continuously. On touchscreens, drag to steer;
+    // a stationary tap adds a new contrasting layer.
+    let activePointer = null;
+    let startX = 0;
+    let startY = 0;
+    let didDrag = false;
+
+    function addLayer(event) {
+      pointerPosition(event);
+      releaseAllOrSome(true);
+      background = background === 255 ? 0 : 255;
+      ink = ink === 1 ? 2 : 1;
+      sourcePixels = sourceTemplate.slice();
+      positionSeal(pointerX, pointerY);
+      rotation = 0;
+      render();
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      activePointer = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      didDrag = false;
+      pointerPosition(event);
+      positionSeal(pointerX, pointerY);
+      canvas.setPointerCapture(event.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (event.pointerType !== 'mouse' && activePointer !== event.pointerId) return;
+      if (activePointer === event.pointerId &&
+          Math.hypot(event.clientX - startX, event.clientY - startY) > 9) {
+        didDrag = true;
+      }
+      pointerPosition(event);
+      positionSeal(pointerX, pointerY);
+    });
+
+    canvas.addEventListener('pointerup', (event) => {
+      if (event.pointerId !== activePointer) return;
+      if (!didDrag) addLayer(event);
+      activePointer = null;
+    });
+
+    canvas.addEventListener('pointercancel', () => { activePointer = null; });
+
+    // Preserve accumulated sediment, source erosion, and inversion on resize.
+    // Reproject the old grid into the new grid rather than restarting the artwork.
+    let resizeTimeout;
+    addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (!cells) return;
+        const oldWidth = width;
+        const oldHeight = height;
+        const oldCells = cells;
+        const oldCenterX = centerX;
+        const oldCenterY = centerY;
+        const oldHalfSize = halfSize;
+        const oldSource = sourcePixels;
+        const oldBackground = background;
+        const oldInk = ink;
+        const oldRotation = rotation;
+        initialize();
+        const xRatio = width / oldWidth;
+        const yRatio = height / oldHeight;
+        for (let y = 0; y < oldHeight; y++) {
+          for (let x = 0; x < oldWidth; x++) {
+            const grain = oldCells[y * oldWidth + x];
+            if (!grain) continue;
+            const nx = Math.min(width - 1, Math.floor(x * xRatio));
+            const ny = Math.min(height - 1, Math.floor(y * yRatio));
+            cells[ny * width + nx] = grain;
+          }
+        }
+        background = oldBackground;
+        ink = oldInk;
+        rotation = oldRotation;
+        const remaining = oldSource.length / Math.max(1, sourceTemplate.length);
+        // Preserve the erosion fraction and shape by matching normalized positions.
+        const surviving = new Set(oldSource.map(p => `${p.x},${p.y}`));
+        sourcePixels = sourceTemplate.filter(p => surviving.has(
+          `${Math.round(p.x * oldHalfSize / halfSize)},${Math.round(p.y * oldHalfSize / halfSize)}`));
+        // Resampling can miss coordinates; retain an approximate amount if necessary.
+        if (!sourcePixels.length && remaining > 0.01) {
+          sourcePixels = sourceTemplate.slice(0, Math.round(sourceTemplate.length * remaining));
+        }
+        positionSeal(oldCenterX * xRatio, oldCenterY * yRatio);
+        render();
+      }, 220);
+    });
+
+    sealImage.addEventListener('load', () => {
+      initialize();
+      requestAnimationFrame(animate);
+    }, { once: true });
+  })();
+  </script>
+</body>
+</html>
