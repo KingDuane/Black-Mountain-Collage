@@ -102,7 +102,7 @@
       syncBrowserColor();
       ink = 1;
       rotation = 0;
-      halfSize = Math.round(Math.min(width * 0.42, height * 0.48) / 2);
+      halfSize = Math.round(Math.min(width * (isTouchSized ? 0.42 : 0.30), height * (isTouchSized ? 0.48 : 0.34)) / 2);
       positionSeal(pointerX ?? width / 2, pointerY ?? height / 2);
 
       // Rasterize the seal once, then reuse its pixel coordinates on clicks.
