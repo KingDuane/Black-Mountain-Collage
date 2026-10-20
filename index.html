@@ -87,9 +87,11 @@
       // Keep fine-grained sand on phones too. The previous 0.9 scale
       // discarded more than half the available pixel detail on Retina screens.
       // Limit the grid to protect mobile memory and CPU usage.
-      const scale = Math.min(isTouchSized ? 1.65 : 1.35,
-        (isTouchSized ? 900 : 1350) / innerWidth,
-        (isTouchSized ? 1500 : 1050) / innerHeight);
+      // A denser desktop grid makes each grain smaller and reduces
+      // the visible pixel pattern as the seal rotates. Mobile is unchanged.
+      const scale = Math.min(isTouchSized ? 1.65 : 1.85,
+        (isTouchSized ? 900 : 1900) / innerWidth,
+        (isTouchSized ? 1500 : 1450) / innerHeight);
       width = Math.max(1, Math.round(innerWidth * scale));
       height = Math.max(1, Math.round(innerHeight * scale));
       canvas.width = width;
