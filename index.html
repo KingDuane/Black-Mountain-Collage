@@ -287,66 +287,56 @@
 
     canvas.addEventListener('pointercancel', () => { activePointer = null; });
 
-    // Reproject grains locally when the viewport changes. Unlike a global
-    // vacancy search, nearby placement never throws sediment across the scene.
+    // Linear-time granular reflow. Process bottom-up, preserving each column's
+    // stratigraphy. A per-column vacancy cursor eliminates expanding-radius
+    // searches (which could stall Safari for several seconds).
     function redistributeSediment(oldCells, oldWidth, oldHeight) {
       const xScale = width / oldWidth;
       const yScale = height / oldHeight;
-      const grains = [];
-      for (let i = 0; i < oldCells.length; i++) {
-        if (oldCells[i]) grains.push(i);
-      }
-
-      // Random order avoids systematic black/white or scan-direction bias.
-      for (let i = grains.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [grains[i], grains[j]] = [grains[j], grains[i]];
-      }
-
-      for (const index of grains) {
-        const x = index % oldWidth;
-        const y = Math.floor(index / oldWidth);
-        const tx = clamp(Math.floor((x + Math.random()) * xScale), 0, width - 1);
-        const ty = clamp(Math.floor((y + Math.random()) * yScale), 0, height - 1);
-        let destination = ty * width + tx;
-
-        if (cells[destination]) {
-          // Expand from the target in concentric square rings. This is a
-          // local search, not a random jump to a distant empty cell.
-          let found = false;
-          const maxRadius = Math.max(width, height);
-          for (let r = 1; r < maxRadius && !found; r++) {
-            const left = Math.max(0, tx - r);
-            const right = Math.min(width - 1, tx + r);
-            const top = Math.max(0, ty - r);
-            const bottom = Math.min(height - 1, ty + r);
-            // Shuffle the side and direction to prevent regular stripes.
-            const startSide = Math.floor(Math.random() * 4);
-            for (let side = 0; side < 4 && !found; side++) {
-              const edge = (startSide + side) % 4;
-              const horizontal = edge < 2;
-              const fixed = edge === 0 ? top : edge === 1 ? bottom : edge === 2 ? left : right;
-              const begin = horizontal ? left : top;
-              const end = horizontal ? right : bottom;
-              const backwards = Math.random() < 0.5;
-              for (let k = begin; k <= end; k++) {
-                const variable = backwards ? end - (k - begin) : k;
-                const nx = horizontal ? variable : fixed;
-                const ny = horizontal ? fixed : variable;
-                // Only inspect the ring itself, not its filled interior.
-                if (Math.max(Math.abs(nx - tx), Math.abs(ny - ty)) !== r) continue;
-                const candidate = ny * width + nx;
-                if (!cells[candidate]) {
-                  destination = candidate;
-                  found = true;
-                  break;
-                }
-              }
-            }
+      // Each column receives grains from bottom to top. Its cursor advances
+      // upward only when necessary; no global particle bursts or long searches.
+      const nextFree = new Int32Array(width);
+      nextFree.fill(height - 1);
+      for (let y = oldHeight - 1; y >= 0; y--) {
+        const row = y * oldWidth;
+        const targetY = Math.min(height - 1, Math.floor((y + 0.5) * yScale));
+        const reverse = (y & 1) === 0;
+        for (let n = 0; n < oldWidth; n++) {
+          const x = reverse ? oldWidth - 1 - n : n;
+          const grain = oldCells[row + x];
+          if (!grain) continue;
+          // Stochastic rounding breaks up the regular stripes caused by
+          // integer scaling, while keeping horizontal movement microscopic.
+          const mapped = (x + 0.5) * xScale - 0.5;
+          const lo = Math.floor(mapped);
+          const fraction = mapped - lo;
+          const tx = clamp(lo + (Math.random() < fraction ? 1 : 0), 0, width - 1);
+          let chosen = -1;
+          let best = Infinity;
+          // Check neighboring columns first. Each has a monotonic cursor,
+          // so placement is constant-time even in a very dense landscape.
+          const direction = Math.random() < 0.5 ? -1 : 1;
+          for (let step = 0; step < 5; step++) {
+            const dx = step === 0 ? 0 : Math.ceil(step / 2) * (step % 2 ? direction : -direction);
+            const cx = tx + dx;
+            if (cx < 0 || cx >= width || nextFree[cx] < 0) continue;
+            const cy = Math.min(targetY, nextFree[cx]);
+            const distance = Math.abs(dx) * 2 + (targetY - cy);
+            if (distance < best) { best = distance; chosen = cx; }
+            if (distance === 0) break;
           }
-          if (!found) continue; // The resized grid is completely full.
+          if (chosen < 0) {
+            // Extremely compressed views: retain grains in the closest
+            // available column without unbounded per-particle searching.
+            for (let cx = 0; cx < width; cx++) {
+              if (nextFree[cx] >= 0) { chosen = cx; break; }
+            }
+            if (chosen < 0) return; // New canvas has no capacity left.
+          }
+          const cy = Math.min(targetY, nextFree[chosen]);
+          cells[cy * width + chosen] = grain;
+          nextFree[chosen] = cy - 1;
         }
-        cells[destination] = oldCells[index];
       }
     }
 
