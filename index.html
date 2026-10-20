@@ -287,9 +287,8 @@
 
     canvas.addEventListener('pointercancel', () => { activePointer = null; });
 
-    // Resizing disturbs the sediment without stamping rows or columns into it.
-    // Every grain is placed in an unoccupied cell; color and grain count are
-    // conserved whenever the new grid has sufficient capacity.
+    // Reproject grains locally when the viewport changes. Unlike a global
+    // vacancy search, nearby placement never throws sediment across the scene.
     function redistributeSediment(oldCells, oldWidth, oldHeight) {
       const xScale = width / oldWidth;
       const yScale = height / oldHeight;
@@ -298,102 +297,105 @@
         if (oldCells[i]) grains.push(i);
       }
 
-      // Randomize placement order so neither color nor scan direction wins
-      // the available cells when a dense landscape is compressed.
+      // Random order avoids systematic black/white or scan-direction bias.
       for (let i = grains.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [grains[i], grains[j]] = [grains[j], grains[i]];
       }
 
-      let placed = 0;
       for (const index of grains) {
-        if (placed === cells.length) break;
         const x = index % oldWidth;
         const y = Math.floor(index / oldWidth);
-        // Subpixel jitter breaks the grid alignment responsible for banding.
-        const targetX = Math.max(0, Math.min(width - 1,
-          Math.floor((x + Math.random()) * xScale + (Math.random() - 0.5) * 3)));
-        const targetY = Math.max(0, Math.min(height - 1,
-          Math.floor((y + Math.random()) * yScale + (Math.random() - 0.5) * 3)));
-        let destination = targetY * width + targetX;
+        const tx = clamp(Math.floor((x + Math.random()) * xScale), 0, width - 1);
+        const ty = clamp(Math.floor((y + Math.random()) * yScale), 0, height - 1);
+        let destination = ty * width + tx;
 
         if (cells[destination]) {
-          // Look for the nearest vacancy in a randomized neighborhood.
-          // The displacement is temporary: gravity will settle the grains.
+          // Expand from the target in concentric square rings. This is a
+          // local search, not a random jump to a distant empty cell.
           let found = false;
-          for (let radius = 1; radius <= 12 && !found; radius++) {
-            const phase = Math.random() * Math.PI * 2;
-            const samples = Math.max(8, Math.ceil(radius * 6));
-            for (let k = 0; k < samples; k++) {
-              const angle = phase + k * Math.PI * 2 / samples;
-              const nx = Math.round(targetX + Math.cos(angle) * radius);
-              const ny = Math.round(targetY + Math.sin(angle) * radius);
-              if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-              const candidate = ny * width + nx;
-              if (!cells[candidate]) {
-                destination = candidate;
-                found = true;
-                break;
+          const maxRadius = Math.max(width, height);
+          for (let r = 1; r < maxRadius && !found; r++) {
+            const left = Math.max(0, tx - r);
+            const right = Math.min(width - 1, tx + r);
+            const top = Math.max(0, ty - r);
+            const bottom = Math.min(height - 1, ty + r);
+            // Shuffle the side and direction to prevent regular stripes.
+            const startSide = Math.floor(Math.random() * 4);
+            for (let side = 0; side < 4 && !found; side++) {
+              const edge = (startSide + side) % 4;
+              const horizontal = edge < 2;
+              const fixed = edge === 0 ? top : edge === 1 ? bottom : edge === 2 ? left : right;
+              const begin = horizontal ? left : top;
+              const end = horizontal ? right : bottom;
+              const backwards = Math.random() < 0.5;
+              for (let k = begin; k <= end; k++) {
+                const variable = backwards ? end - (k - begin) : k;
+                const nx = horizontal ? variable : fixed;
+                const ny = horizontal ? fixed : variable;
+                // Only inspect the ring itself, not its filled interior.
+                if (Math.max(Math.abs(nx - tx), Math.abs(ny - ty)) !== r) continue;
+                const candidate = ny * width + nx;
+                if (!cells[candidate]) {
+                  destination = candidate;
+                  found = true;
+                  break;
+                }
               }
             }
           }
-          if (!found) {
-            // In very dense regions, find a vacancy anywhere rather than
-            // dropping a grain because its projected cell was occupied.
-            const start = Math.floor(Math.random() * cells.length);
-            let offset = start;
-            do {
-              if (!cells[offset]) {
-                destination = offset;
-                found = true;
-                break;
-              }
-              offset = (offset + 1) % cells.length;
-            } while (offset !== start);
-          }
-          if (!found) break;
+          if (!found) continue; // The resized grid is completely full.
         }
         cells[destination] = oldCells[index];
-        placed++;
       }
     }
 
-    // Preserve the accumulated landscape and let it settle into new bounds.
-    let resizeTimeout;
-    addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (!cells) return;
-        const oldWidth = width;
-        const oldHeight = height;
-        const oldCells = cells;
-        const oldCenterX = centerX;
-        const oldCenterY = centerY;
-        const oldHalfSize = halfSize;
-        const oldSource = sourcePixels;
-        const oldBackground = background;
-        const oldInk = ink;
-        const oldRotation = rotation;
-        initialize();
-        const xRatio = width / oldWidth;
-        const yRatio = height / oldHeight;
+    // Resize at the next animation frame instead of waiting for a debounce.
+    // This avoids CSS stretching the seal for 220ms while the window moves.
+    let resizeQueued = false;
+    function resizeArtwork() {
+      resizeQueued = false;
+      if (!cells) return;
+      const oldWidth = width;
+      const oldHeight = height;
+      const oldCells = cells;
+      const oldCenterX = centerX;
+      const oldCenterY = centerY;
+      const oldHalfSize = halfSize;
+      const oldSource = sourcePixels;
+      const oldTemplateCount = sourceTemplate.length;
+      const oldBackground = background;
+      const oldInk = ink;
+      const oldRotation = rotation;
+
+      initialize();
+      if (width === oldWidth && height === oldHeight) {
+        cells = oldCells;
+      } else {
         redistributeSediment(oldCells, oldWidth, oldHeight);
-        background = oldBackground;
-        syncBrowserColor();
-        ink = oldInk;
-        rotation = oldRotation;
-        const remaining = oldSource.length / Math.max(1, sourceTemplate.length);
-        // Preserve the erosion fraction and shape by matching normalized positions.
-        const surviving = new Set(oldSource.map(p => `${p.x},${p.y}`));
-        sourcePixels = sourceTemplate.filter(p => surviving.has(
-          `${Math.round(p.x * oldHalfSize / halfSize)},${Math.round(p.y * oldHalfSize / halfSize)}`));
-        // Resampling can miss coordinates; retain an approximate amount if necessary.
-        if (!sourcePixels.length && remaining > 0.01) {
-          sourcePixels = sourceTemplate.slice(0, Math.round(sourceTemplate.length * remaining));
-        }
-        positionSeal(oldCenterX * xRatio, oldCenterY * yRatio);
-        render();
-      }, 220);
+      }
+      background = oldBackground;
+      syncBrowserColor();
+      ink = oldInk;
+      rotation = oldRotation;
+
+      // Preserve the shape and degree of erosion, including after a size change.
+      const surviving = new Set(oldSource.map(p => `${p.x},${p.y}`));
+      sourcePixels = sourceTemplate.filter(p => surviving.has(
+        `${Math.round(p.x * oldHalfSize / halfSize)},${Math.round(p.y * oldHalfSize / halfSize)}`));
+      const remaining = oldSource.length / Math.max(1, oldTemplateCount);
+      if (!sourcePixels.length && remaining > 0.01) {
+        sourcePixels = sourceTemplate.slice(0, Math.round(sourceTemplate.length * remaining));
+      }
+      positionSeal(oldCenterX * width / oldWidth, oldCenterY * height / oldHeight);
+      render();
+    }
+
+    addEventListener('resize', () => {
+      if (!resizeQueued) {
+        resizeQueued = true;
+        requestAnimationFrame(resizeArtwork);
+      }
     });
 
     sealImage.addEventListener('load', () => {
