@@ -19,7 +19,9 @@
       @@@@@@@@                @@@@@@@@@@@@@@@@@@@@               @@@@@@@@@@
 ```
 
-# Black Mountain Collage
+# The Medium is the Collage  
+
+Black Mountain Collage  
 Artists in Resonance  
 North Carolina  
 October 2026  
