@@ -12,8 +12,8 @@
   <title>The Medium is the Collage</title>
   <style>
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--page-bg, #fff); }
-    /* Overscan into the iOS bottom safe area, if Safari exposes it. */
-    canvas { display: block; width: 100%; height: calc(100dvh + env(safe-area-inset-bottom, 0px)); touch-action: none; }
+    /* Pin the artwork to the screen; standalone mode may expose a shorter CSS viewport. */
+    canvas { position: fixed; inset: 0 auto auto 0; display: block; width: 100%; height: 100dvh; touch-action: none; }
   </style>
 </head>
 <body>
@@ -84,6 +84,18 @@
     }
 
     function initialize() {
+      // A Home Screen web app can report a viewport shorter than the actual
+      // screen, leaving a blank strip below the simulated floor. Use the
+      // screen extent only in standalone mode, not in ordinary Safari.
+      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+      const portrait = innerHeight >= innerWidth;
+      const screenExtent = portrait
+        ? Math.max(screen.width, screen.height)
+        : Math.min(screen.width, screen.height);
+      canvas.style.height = standalone
+        ? `${Math.max(innerHeight, screenExtent)}px`
+        : '100dvh';
       // Internal resolution is capped to avoid extreme memory consumption.
       const viewWidth = canvas.clientWidth || innerWidth;
       const viewHeight = canvas.clientHeight || innerHeight;
@@ -383,7 +395,6 @@
       }
       positionSeal(oldCenterX * width / oldWidth, oldCenterY * height / oldHeight);
       render();
-      reportViewport();
     }
 
     addEventListener('resize', () => {
