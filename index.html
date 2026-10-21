@@ -12,7 +12,7 @@
   <title>The Medium is the Collage</title>
   <style>
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--page-bg, #fff); }
-    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    canvas { display: block; width: 100%; height: 100dvh; touch-action: none; }
   </style>
 </head>
 <body>
@@ -83,17 +83,19 @@
 
     function initialize() {
       // Internal resolution is capped to avoid extreme memory consumption.
-      const isTouchSized = Math.min(innerWidth, innerHeight) < 700;
+      const viewWidth = canvas.clientWidth || innerWidth;
+      const viewHeight = canvas.clientHeight || innerHeight;
+      const isTouchSized = Math.min(viewWidth, viewHeight) < 700;
       // Keep fine-grained sand on phones too. The previous 0.9 scale
       // discarded more than half the available pixel detail on Retina screens.
       // Limit the grid to protect mobile memory and CPU usage.
       // A denser desktop grid makes each grain smaller and reduces
       // the visible pixel pattern as the seal rotates. Mobile is unchanged.
       const scale = Math.min(isTouchSized ? 1.65 : 1.85,
-        (isTouchSized ? 900 : 1900) / innerWidth,
-        (isTouchSized ? 1500 : 1450) / innerHeight);
-      width = Math.max(1, Math.round(innerWidth * scale));
-      height = Math.max(1, Math.round(innerHeight * scale));
+        (isTouchSized ? 900 : 1900) / viewWidth,
+        (isTouchSized ? 1500 : 1450) / viewHeight);
+      width = Math.max(1, Math.round(viewWidth * scale));
+      height = Math.max(1, Math.round(viewHeight * scale));
       canvas.width = width;
       canvas.height = height;
       context.imageSmoothingEnabled = false;
